@@ -5,6 +5,22 @@ def bigquant_run(context, data):
         context.ranker_prediction.date == data.current_dt.strftime('%Y-%m-%d')]
 
     # ranker_prediction = ranker_prediction.sort_values('label', ascending=False)
+    today = data.current_dt.strftime('%Y-%m-%d')
+    positions = {e.symbol: p.amount * p.last_sale_price
+                 for e, p in context.perf_tracker.position_tracker.positions.items()}
+    try:
+        # 大盘风控模块，读取风控数据
+        bm_2 = ranker_prediction['bm_2'].values[0]
+        bm_3 = ranker_prediction['bm_3'].values[0]
+        bm_4 = ranker_prediction['bm_4'].values[0]
+        bm_5 = ranker_prediction['bm_5'].values[0]
+        if bm_2 > 0 and bm_3 > 0 and bm_4 > 0:
+            print(today, '大盘风控止损触发,全仓卖出')
+            for instrument in positions.keys():
+                context.order_target(context.symbol(instrument), 0)
+            return
+    except:
+        print('缺失风控数据！')
 
     # 1. 资金分配
     # 平均持仓时间是hold_days，每日都将买入股票，每日预期使用 1/hold_days 的资金
@@ -13,8 +29,7 @@ def bigquant_run(context, data):
     cash_avg = context.portfolio.portfolio_value / context.options['hold_days']
     cash_for_buy = min(context.portfolio.cash, (1 if is_staging else 1.5) * cash_avg)
     cash_for_sell = cash_avg - (context.portfolio.cash - cash_for_buy)
-    positions = {e.symbol: p.amount * p.last_sale_price
-                 for e, p in context.perf_tracker.position_tracker.positions.items()}
+
 
     # ------------------------START:止赢止损模块(含建仓期)---------------
     stock_sold = []  # 记录卖出的股票，防止多次卖出出现空单
@@ -39,39 +54,9 @@ def bigquant_run(context, data):
                 else:
                     context.instrument_high_price[instrument] = stock_market_price
 
-            # 计算持股天数
-            if instrument in context.instrument_hold_days:
-                context.instrument_hold_days[instrument] = context.instrument_hold_days[instrument] + 1
-            else:
-                context.instrument_hold_days[instrument] = 1
             # volume_since_buy = data.history(context.symbol(instrument), 'volume', 6, '1d')
             rate = stock_market_price / context.instrument_high_price[instrument] - 1
-            low = data.current(context.symbol(instrument), 'low')
-            high = data.current(context.symbol(instrument), 'high')
-            close = data.current(context.symbol(instrument), 'close')
-            zhenfu = (high - low) / low
-
-            # 持股满7天且当日非涨停则卖出
-            # if context.instrument_hold_days[instrument] >= 5 and stock_market_price / stock_cost - 1 < 0.1 and close != high and data.can_trade(context.symbol(instrument)) and instrument not in stock_sold:
-            #     context.order_target_percent(context.symbol(instrument), 0)
-            #     cash_for_sell -= positions[instrument]
-            #     current_stophold_stock.append(instrument)
-            #     # print(today, instrument, '持股满7天卖出')
-            #     context.instrument_high_price.pop(instrument)
-            #     context.instrument_hold_days.pop(instrument)
-            #     stock_sold.append(instrument)
-
             # 亏5%并且为可交易状态就止损
-
-            # 振幅>16且收盘价不等于最高价
-            # if zhenfu > 0.16 and high != close and instrument not in stock_sold:
-            #     context.order_target_percent(context.symbol(instrument), 0)
-            #     cash_for_sell -= positions[instrument]
-            #     current_stoploss_stock.append(instrument)
-            #     context.instrument_high_price.pop(instrument)
-            #     context.instrument_hold_days.pop(instrument)
-            #     stock_sold.append(instrument)
-
             if rate <= -0.06 and data.can_trade(context.symbol(instrument)) and instrument not in stock_sold:
                 context.order_target_percent(context.symbol(instrument), 0)
 
@@ -79,10 +64,6 @@ def bigquant_run(context, data):
                 # print(today, instrument, '当前移动最高价', context.instrument_high_price[instrument], '当前价格', stock_market_price, '移动止损卖出', rate)
                 current_stoploss_stock.append(instrument)
                 context.instrument_high_price.pop(instrument)
-                context.instrument_hold_days.pop(instrument)
-        # if len(current_stopwin_stock) > 0:
-        #     print(today, '止盈股票列表', current_stopwin_stock)
-        #     stock_sold += current_stopwin_stock
         if len(current_stoploss_stock) > 0:
             # print(today, '止损股票列表', current_stoploss_stock)
             stock_sold += current_stoploss_stock
@@ -90,7 +71,6 @@ def bigquant_run(context, data):
     # --------------------------END: 止赢止损模块--------------------------
 
     # 2. 生成卖出订单：hold_days天之后才开始卖出；对持仓的股票，按机器学习算法预测的排序末位淘汰
-    current_stopdays_stock = []
     if not is_staging and cash_for_sell > 0:
         equities = {e.symbol: e for e, p in context.perf_tracker.position_tracker.positions.items()}
         instruments = list(reversed(list(ranker_prediction.instrument[ranker_prediction.instrument.apply(
@@ -106,6 +86,7 @@ def bigquant_run(context, data):
             context.order_target(context.symbol(instrument), 0)
             cash_for_sell -= positions[instrument]
             stock_sold.append(instrument)
+            context.instrument_high_price.pop(instrument)
 
 
     # 3. 生成买入订单：按机器学习算法预测的排序，买入前面的stock_count只股票
