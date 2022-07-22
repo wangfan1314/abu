@@ -110,7 +110,14 @@ def bigquant_run(context, data):
 
     # 3. 生成买入订单：按机器学习算法预测的排序，买入前面的stock_count只股票
     buy_cash_weights = context.stock_weights
-    buy_instruments = list(ranker_prediction.instrument[:len(buy_cash_weights)])
+    # 计算今日跌停的股票
+    dt_list = list(ranker_prediction[ranker_prediction.price_limit_status_0 == 1].instrument)
+    # 计算今日ST/退市的股票
+    # st_list = list(ranker_prediction[
+    #                    ranker_prediction.name.str.contains('ST') | ranker_prediction.name.str.contains('退')].instrument)
+    banned_list = stock_sold + dt_list
+    buy_instruments = [k for k in list(ranker_prediction.instrument) if k not in banned_list][:len(buy_cash_weights)]
+    # buy_instruments = list(ranker_prediction.instrument[:len(buy_cash_weights)])
     max_cash_per_instrument = context.portfolio.portfolio_value * context.max_cash_per_instrument
     for i, instrument in enumerate(buy_instruments):
         # if i == 1:

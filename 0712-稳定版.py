@@ -14,8 +14,7 @@ def bigquant_run(context, data):
         bm_2 = ranker_prediction['bm_2'].values[0]
         bm_3 = ranker_prediction['bm_3'].values[0]
         bm_4 = ranker_prediction['bm_4'].values[0]
-        bm_5 = ranker_prediction['bm_5'].values[0]
-        if bm_2 > 0 and bm_3 > 0 and bm_4 > 0:
+        if (bm_2 > 0 and bm_3 > 0 and bm_4 > 0):
             print(today, '大盘风控止损触发,全仓卖出')
             for instrument in positions.keys():
                 context.order_target(context.symbol(instrument), 0)
@@ -30,6 +29,8 @@ def bigquant_run(context, data):
     cash_avg = context.portfolio.portfolio_value / context.options['hold_days']
     cash_for_buy = min(context.portfolio.cash, (1 if is_staging else 1.5) * cash_avg)
     cash_for_sell = cash_avg - (context.portfolio.cash - cash_for_buy)
+    if today == '2021-12-27':
+        print(today, cash_avg, cash_for_buy, cash_for_sell)
 
 
     # ------------------------START:止赢止损模块(含建仓期)---------------
@@ -62,6 +63,7 @@ def bigquant_run(context, data):
                 context.order_target_percent(context.symbol(instrument), 0)
 
                 cash_for_sell -= positions[instrument]
+                #cash_for_buy += positions[instrument]
                 # print(today, instrument, '当前移动最高价', context.instrument_high_price[instrument], '当前价格', stock_market_price, '移动止损卖出', rate)
                 current_stoploss_stock.append(instrument)
                 context.instrument_high_price.pop(instrument)
@@ -72,27 +74,42 @@ def bigquant_run(context, data):
     # --------------------------END: 止赢止损模块--------------------------
 
     # 2. 生成卖出订单：hold_days天之后才开始卖出；对持仓的股票，按机器学习算法预测的排序末位淘汰
+    zt_list = list(ranker_prediction[ranker_prediction.price_limit_status_0 == 3].instrument)
     if not is_staging and cash_for_sell > 0:
         equities = {e.symbol: e for e, p in context.perf_tracker.position_tracker.positions.items()}
+        # equities = {e.symbol: e for e, p in context.portfolio.positions.items()}
         instruments = list(reversed(list(ranker_prediction.instrument[ranker_prediction.instrument.apply(
             lambda x: x in equities and not context.has_unfinished_sell_order(equities[x]))])))
         # print('rank order for sell %s' % instruments)
         for instrument in instruments:
             # 如果资金够了就不卖出了
             if cash_for_sell <= 0:
+                print(today, instrument, cash_for_sell)
                 break
             # 防止多个止损条件同时满足，出现多次卖出产生空单
             if instrument in stock_sold:
                 continue
+            # 涨停不卖出
+            if instrument in zt_list:
+                print(today, instrument, "涨停继续持有")
+                continue
             context.order_target(context.symbol(instrument), 0)
             cash_for_sell -= positions[instrument]
+            cash_for_buy += positions[instrument]
             stock_sold.append(instrument)
             context.instrument_high_price.pop(instrument)
 
 
     # 3. 生成买入订单：按机器学习算法预测的排序，买入前面的stock_count只股票
+    # 计算今日跌停的股票
+    dt_list = list(ranker_prediction[ranker_prediction.price_limit_status_0 == 1].instrument)
+    cx_list = list(ranker_prediction[ranker_prediction.list_days_0 < 300].instrument)
+    # 计算今日ST/退市的股票
+    # st_list = list(ranker_prediction[
+    #                    ranker_prediction.name.str.contains('ST') | ranker_prediction.name.str.contains('退')].instrument)
+    banned_list = stock_sold + dt_list + cx_list
     buy_cash_weights = context.stock_weights
-    buy_instruments = list(ranker_prediction.instrument[:len(buy_cash_weights)])
+    buy_instruments = [k for k in list(ranker_prediction.instrument) if k not in banned_list][:len(buy_cash_weights)]
     max_cash_per_instrument = context.portfolio.portfolio_value * context.max_cash_per_instrument
     for i, instrument in enumerate(buy_instruments):
         # if i == 1:
