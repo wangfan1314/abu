@@ -8,6 +8,8 @@ def bigquant_run(context, data):
     today = data.current_dt.strftime('%Y-%m-%d')
     positions = {e.symbol: p.amount * p.last_sale_price
                  for e, p in context.perf_tracker.position_tracker.positions.items()}
+
+    context.fall_back_count = context.fall_back_count - 1
     try:
         # 大盘风控模块，读取风控数据
         bm_0 = ranker_prediction['bm_0'].values[0]
@@ -29,8 +31,6 @@ def bigquant_run(context, data):
     cash_avg = context.portfolio.portfolio_value / context.options['hold_days']
     cash_for_buy = min(context.portfolio.cash, (1 if is_staging else 1.5) * cash_avg)
     cash_for_sell = cash_avg - (context.portfolio.cash - cash_for_buy)
-    if today == '2021-12-27':
-        print(today, cash_avg, cash_for_buy, cash_for_sell)
 
 
     # ------------------------START:止赢止损模块(含建仓期)---------------
@@ -42,6 +42,8 @@ def bigquant_run(context, data):
     # print(context.portfolio.positions.items())
     if len(positions) > 0:
         # print(today, '今日持仓列表:', positions.keys())
+        all_stop = True
+        one_stop = False
         for instrument in positions.keys():
             stock_cost = positions_cost[instrument]
             # 当前价格
@@ -61,12 +63,25 @@ def bigquant_run(context, data):
             # 亏5%并且为可交易状态就止损
             if rate <= -0.06 and data.can_trade(context.symbol(instrument)) and instrument not in stock_sold:
                 context.order_target_percent(context.symbol(instrument), 0)
-
                 cash_for_sell -= positions[instrument]
                 #cash_for_buy += positions[instrument]
                 # print(today, instrument, '当前移动最高价', context.instrument_high_price[instrument], '当前价格', stock_market_price, '移动止损卖出', rate)
                 current_stoploss_stock.append(instrument)
                 context.instrument_high_price.pop(instrument)
+                stock_sold.append(instrument)
+                one_stop = True
+            else:
+                all_stop = False
+
+        if one_stop:
+            context.continue_loss_day = context.continue_loss_day + 1
+        else:
+            context.continue_loss_day = 0
+        if all_stop:
+            context.continue_loss_day = 100
+        if context.continue_loss_day >= 2:
+            print(today, "触发止损风控，fallback开始")
+            context.fall_back_count = 4
         if len(current_stoploss_stock) > 0:
             # print(today, '止损股票列表', current_stoploss_stock)
             stock_sold += current_stoploss_stock
@@ -91,7 +106,7 @@ def bigquant_run(context, data):
                 continue
             # 涨停不卖出
             if instrument in zt_list:
-                print(today, instrument, "涨停继续持有")
+                # print(today, instrument, "涨停继续持有")
                 continue
             context.order_target(context.symbol(instrument), 0)
             cash_for_sell -= positions[instrument]
@@ -101,6 +116,9 @@ def bigquant_run(context, data):
 
 
     # 3. 生成买入订单：按机器学习算法预测的排序，买入前面的stock_count只股票
+    if context.fall_back_count > 0:
+        print(today, "fallback不买入", context.fall_back_count)
+        return
     # 计算今日跌停的股票
     dt_list = list(ranker_prediction[ranker_prediction.price_limit_status_0 == 1].instrument)
     cx_list = list(ranker_prediction[ranker_prediction.list_days_0 < 300].instrument)
@@ -111,10 +129,13 @@ def bigquant_run(context, data):
     buy_cash_weights = context.stock_weights
     buy_instruments = [k for k in list(ranker_prediction.instrument) if k not in banned_list][:len(buy_cash_weights)]
     max_cash_per_instrument = context.portfolio.portfolio_value * context.max_cash_per_instrument
+
+    hold_count = len(positions) - len(stock_sold)
     for i, instrument in enumerate(buy_instruments):
-        # if i == 1:
-        #     continue
         cash = cash_for_buy * buy_cash_weights[i]
+        if hold_count >= 3:
+            cash = cash_for_buy
+            print("=======cash", cash)
         if cash > max_cash_per_instrument - positions.get(instrument, 0):
             # 确保股票持仓量不会超过每次股票最大的占用资金量
             cash = max_cash_per_instrument - positions.get(instrument, 0)
@@ -122,3 +143,5 @@ def bigquant_run(context, data):
             if cash < 2000:
                 break
             context.order_value(context.symbol(instrument), cash)
+        if hold_count >= 3:
+            break

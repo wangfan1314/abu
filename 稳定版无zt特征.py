@@ -72,7 +72,7 @@ def bigquant_run(context, data):
             #     context.instrument_hold_days.pop(instrument)
             #     stock_sold.append(instrument)
 
-            if rate <= -0.15 and data.can_trade(context.symbol(instrument)) and instrument not in stock_sold:
+            if rate <= -0.06 and data.can_trade(context.symbol(instrument)) and instrument not in stock_sold:
                 context.order_target_percent(context.symbol(instrument), 0)
 
                 cash_for_sell -= positions[instrument]
@@ -107,26 +107,19 @@ def bigquant_run(context, data):
             cash_for_sell -= positions[instrument]
             stock_sold.append(instrument)
 
-            # 防止多个止损条件同时满足，出现多次卖出产生空单
-            # if instrument in stock_sold:
-            #     continue
-            # context.order_target(context.symbol(instrument), 0)
-            # current_stopdays_stock.append(instrument)
-            # cash_for_sell -= positions[instrument]
-            # #if len(current_stopdays_stock)>0:
-            #     #print(today,'固定天数卖出列表',current_stopdays_stock)
-            # stock_sold += current_stopdays_stock
-            # if cash_for_sell <= 0:
-            #     break
 
     # 3. 生成买入订单：按机器学习算法预测的排序，买入前面的stock_count只股票
     buy_cash_weights = context.stock_weights
     buy_instruments = list(ranker_prediction.instrument[:len(buy_cash_weights)])
     max_cash_per_instrument = context.portfolio.portfolio_value * context.max_cash_per_instrument
     for i, instrument in enumerate(buy_instruments):
+        # if i == 1:
+        #     continue
         cash = cash_for_buy * buy_cash_weights[i]
         if cash > max_cash_per_instrument - positions.get(instrument, 0):
             # 确保股票持仓量不会超过每次股票最大的占用资金量
             cash = max_cash_per_instrument - positions.get(instrument, 0)
         if cash > 0:
+            if cash < 2000:
+                break
             context.order_value(context.symbol(instrument), cash)
