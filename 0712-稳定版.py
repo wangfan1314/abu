@@ -10,6 +10,7 @@ def bigquant_run(context, data):
                  for e, p in context.perf_tracker.position_tracker.positions.items()}
 
     context.fall_back_count = context.fall_back_count - 1
+    zt_list = list(ranker_prediction[ranker_prediction.price_limit_status_0 == 3].instrument)
     try:
         # 大盘风控模块，读取风控数据
         bm_0 = ranker_prediction['bm_0'].values[0]
@@ -48,24 +49,26 @@ def bigquant_run(context, data):
             stock_cost = positions_cost[instrument]
             # 当前价格
             stock_market_price = data.current(context.symbol(instrument), 'price')
+            high = data.current(context.symbol(instrument), 'high')
+            close = data.current(context.symbol(instrument), 'close')
             # 计算移动最高价
             if instrument in context.instrument_high_price:
-                if context.instrument_high_price[instrument] < stock_market_price:
-                    context.instrument_high_price[instrument] = stock_market_price
+                if context.instrument_high_price[instrument] < high:
+                    context.instrument_high_price[instrument] = high
             else:
-                if stock_cost > stock_market_price:
+                if stock_cost > high:
                     context.instrument_high_price[instrument] = stock_cost
                 else:
-                    context.instrument_high_price[instrument] = stock_market_price
+                    context.instrument_high_price[instrument] = high
 
             # volume_since_buy = data.history(context.symbol(instrument), 'volume', 6, '1d')
             rate = stock_market_price / context.instrument_high_price[instrument] - 1
             # 亏5%并且为可交易状态就止损
-            if rate <= -0.06 and data.can_trade(context.symbol(instrument)) and instrument not in stock_sold:
+            if rate <= -0.057 and data.can_trade(context.symbol(instrument)) and instrument not in stock_sold:
                 context.order_target_percent(context.symbol(instrument), 0)
                 cash_for_sell -= positions[instrument]
                 #cash_for_buy += positions[instrument]
-                # print(today, instrument, '当前移动最高价', context.instrument_high_price[instrument], '当前价格', stock_market_price, '移动止损卖出', rate)
+                print(today, instrument, '当前移动最高价', context.instrument_high_price[instrument], '当前价格', stock_market_price, '移动止损卖出', rate)
                 current_stoploss_stock.append(instrument)
                 context.instrument_high_price.pop(instrument)
                 stock_sold.append(instrument)
@@ -86,10 +89,11 @@ def bigquant_run(context, data):
             # print(today, '止损股票列表', current_stoploss_stock)
             stock_sold += current_stoploss_stock
 
+
     # --------------------------END: 止赢止损模块--------------------------
 
+
     # 2. 生成卖出订单：hold_days天之后才开始卖出；对持仓的股票，按机器学习算法预测的排序末位淘汰
-    zt_list = list(ranker_prediction[ranker_prediction.price_limit_status_0 == 3].instrument)
     if not is_staging and cash_for_sell > 0:
         equities = {e.symbol: e for e, p in context.perf_tracker.position_tracker.positions.items()}
         # equities = {e.symbol: e for e, p in context.portfolio.positions.items()}
@@ -133,9 +137,10 @@ def bigquant_run(context, data):
     hold_count = len(positions) - len(stock_sold)
     for i, instrument in enumerate(buy_instruments):
         cash = cash_for_buy * buy_cash_weights[i]
-        if hold_count >= 3:
+        if hold_count == 2:
+            break
+        if hold_count == 1:
             cash = cash_for_buy
-            print("=======cash", cash)
         if cash > max_cash_per_instrument - positions.get(instrument, 0):
             # 确保股票持仓量不会超过每次股票最大的占用资金量
             cash = max_cash_per_instrument - positions.get(instrument, 0)
@@ -143,5 +148,4 @@ def bigquant_run(context, data):
             if cash < 2000:
                 break
             context.order_value(context.symbol(instrument), cash)
-        if hold_count >= 3:
-            break
+        hold_count = hold_count+1
