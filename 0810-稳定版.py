@@ -20,6 +20,12 @@ def bigquant_run(context, data):
         if (bm_2 > 0 and bm_3 > 0 and bm_4 > 0):
             print(today, '大盘风控止损触发,全仓卖出')
             for instrument in positions.keys():
+                if instrument in zt_list:
+                    print(today, '大盘风控止损触发,涨停不卖出,instrument', instrument)
+                    # continue
+                close_price = data.current(context.symbol(instrument), 'close')
+                open_price = data.current(context.symbol(instrument), 'open')
+                rate = ((close_price / open_price) - 1) * 100
                 context.order_target(context.symbol(instrument), 0)
             return
     except:
@@ -112,6 +118,7 @@ def bigquant_run(context, data):
             if instrument in zt_list:
                 # print(today, instrument, "涨停继续持有")
                 continue
+            print(today, '主动卖出', instrument, '持股天数',context.trading_day_index)
             context.order_target(context.symbol(instrument), 0)
             cash_for_sell -= positions[instrument]
             cash_for_buy += positions[instrument]
@@ -137,10 +144,13 @@ def bigquant_run(context, data):
     hold_count = len(positions) - len(stock_sold)
     for i, instrument in enumerate(buy_instruments):
         cash = cash_for_buy * buy_cash_weights[i]
-        # if hold_count == 2:
-        #     break
-        # if hold_count == 1:
-        #     cash = cash_for_buy
+        if hold_count == 2:
+            break
+        if hold_count == 1:
+            if i == 0:
+                continue
+            else:
+                cash = cash_for_buy
         if cash > max_cash_per_instrument - positions.get(instrument, 0):
             # 确保股票持仓量不会超过每次股票最大的占用资金量
             cash = max_cash_per_instrument - positions.get(instrument, 0)
