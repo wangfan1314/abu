@@ -18,6 +18,7 @@ def bigquant_run(context, data):
         bm_3 = ranker_prediction['bm_3'].values[0]
         bm_4 = ranker_prediction['bm_4'].values[0]
         if (bm_2 > 0 and bm_3 > 0 and bm_4 > 0):
+        # if (bm_2 > 0 and bm_4 > 0):
             print(today, '大盘风控止损触发,全仓卖出')
             for instrument in positions.keys():
                 if instrument in zt_list:
@@ -358,5 +359,23 @@ def bigquant_run(context, data):
         if cash > 0:
             if cash < 2000:
                 break
-            context.order_value(context.symbol(instrument), cash)
+            price_history = data.history(context.symbol(instrument), fields="price", bar_count=6, frequency="1d")
+            open_history = data.history(context.symbol(instrument), fields="open", bar_count=2, frequency="1d")
+            return0 = (price_history[-1] - price_history[-2]) / price_history[-2]
+            return5 = (price_history[-1] - price_history[-6]) / price_history[-6]
+            if return0 > 0.08 and price_history[-2] == open_history[-2]:
+                # print(today, instrument, 'return0超过8', return0,'open',open_history[-2],'close',price_history[-2])
+                break
+            # if return5 > 0.3:
+            #     print(today, instrument, 'return5超过8', return5)
+            #     break
+            order_id = context.order_value(context.symbol(instrument), cash)
+            order_object = context.get_order(order_id)
+            if order_object:
+                buy_close = data.current(context.symbol(instrument), 'close')
+                buy_actual = buy_close * order_object.amount
+                # print('instrument', instrument, 'close', 'amount', order_object.amount, buy_close, 'buy_actual', buy_actual, 'cash', cash)
+                cash_for_buy -= buy_actual
+            else:
+                print('today', today, 'instrument', instrument, '订单为空')
         hold_count = hold_count+1
