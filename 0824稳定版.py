@@ -46,8 +46,8 @@ def bigquant_run(context, data):
     stock_sold = []  # 记录卖出的股票，防止多次卖出出现空单
     current_stoploss_stock = []
     positions_cost = {e.symbol: p.cost_basis for e, p in context.portfolio.positions.items()}
-    if len(positions) > 0:
-        all_stop = True
+    holds = len(positions);
+    if holds > 0:
         one_stop = False
         for instrument in positions.keys():
             stock_cost = positions_cost[instrument]
@@ -85,8 +85,7 @@ def bigquant_run(context, data):
                 context.instrument_hold_days.pop(instrument)
                 stock_sold.append(instrument)
                 one_stop = True
-            else:
-                all_stop = False
+                holds = holds - 1
 
             # 持股满7天且当日非涨停则卖出
             if instrument not in stock_sold and context.instrument_hold_days[
@@ -100,12 +99,13 @@ def bigquant_run(context, data):
                 context.instrument_high_price.pop(instrument)
                 context.instrument_hold_days.pop(instrument)
                 stock_sold.append(instrument)
+                holds = holds - 1
 
         if one_stop:
             context.continue_loss_day = context.continue_loss_day + 1
         else:
             context.continue_loss_day = 0
-        if all_stop:
+        if holds == 0:
             context.continue_loss_day = 100
         if context.continue_loss_day >= 2:
             print(today, "触发止损风控，fallback开始")
