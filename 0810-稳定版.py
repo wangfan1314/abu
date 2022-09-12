@@ -359,16 +359,15 @@ def bigquant_run(context, data):
         if cash > 0:
             if cash < 2000:
                 break
-            price_history = data.history(context.symbol(instrument), fields="price", bar_count=6, frequency="1d")
+            price_history = data.history(context.symbol(instrument), fields="price", bar_count=2, frequency="1d")
             open_history = data.history(context.symbol(instrument), fields="open", bar_count=2, frequency="1d")
+            high_history = data.history(context.symbol(instrument), fields="high", bar_count=2, frequency="1d")
             return0 = (price_history[-1] - price_history[-2]) / price_history[-2]
-            return5 = (price_history[-1] - price_history[-6]) / price_history[-6]
-            if return0 > 0.08 and price_history[-2] == open_history[-2]:
-                # print(today, instrument, 'return0超过8', return0,'open',open_history[-2],'close',price_history[-2])
-                break
-            # if return5 > 0.3:
-            #     print(today, instrument, 'return5超过8', return5)
-            #     break
+            zt_price = round((price_history[-2] * 1.1),2)
+            # if price_history[-1] == zt_price and price_history[-2] == open_history[-2]:
+            # # if high_history[-1] == zt_price and price_history[-1] < zt_price and return0 < 0.06:
+            #     print(today, instrument, 'return0超过8', return0,'high',high_history[-1],'close',price_history[-1],'zt_price',zt_price)
+            #     continue
             order_id = context.order_value(context.symbol(instrument), cash)
             order_object = context.get_order(order_id)
             if order_object:
