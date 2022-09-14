@@ -32,7 +32,6 @@ def bigquant_run(context, data):
     today_to_sell = [i for i in sell_instruments[:5]]
     for instrument in today_to_sell:
         context.order_target(context.symbol(instrument), 0)
-        cash_for_buy += positions[instrument]
     # 今天需要买入的股票 存在于我们 模型当天预测的股票池buy_instruments中
     # 这里我们只买排名最靠前的第一名
     today_to_buy = [i for i in buy_instruments[:1]]

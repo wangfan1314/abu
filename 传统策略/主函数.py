@@ -1,188 +1,46 @@
-# --------------------------------------------------------------------
-# 卖出条件
-# --------------------------------------------------------------------
-def sell_action(context, data):
-    date = data.current_dt.strftime('%Y-%m-%d')
-    hit_stop_stock = context.stock_hit_stop
-
-    try:
-        today_enter_stock = context.enter_daily_df.loc[date]
-    except KeyError as e:
-        today_enter_stock = []
-    try:
-        today_exit_stock = context.exit_daily_df.loc[date]
-    except KeyError as e:
-        today_exit_stock = []
-
-    target_stock_to_buy = [i for i in context.selected_stock if i in today_enter_stock]
-    stock_hold_now = [equity.symbol for equity in context.portfolio.positions]  # 当前持仓股票
-
-    if context.trading_day_index % context.sell_frequency == 0:
-        stock_to_sell = [i for i in stock_hold_now if i in today_exit_stock]  # 要卖出的股票
-        stock_buy_and_sell = [i for i in stock_to_sell if i in target_stock_to_buy]
-        if context.is_sell_willbuy_stock == False:  # 要买入的股票不卖出,但该票也不再买入
-            stock_to_sell.extend(hit_stop_stock)  # 将触发个股风控的股票融入到卖出票池
-            stock_to_sell = [i for i in stock_to_sell if i not in stock_buy_and_sell]  # 进行更新而已
-        elif context.is_sell_willbuy_stock == True:  # 要买入的股票依然要卖出,该票不再买入
-            stock_to_sell.extend(hit_stop_stock)
-
-        # 买入时需要过滤的股票
-        context.cannot_buy_stock = stock_buy_and_sell
-
-        for stock in stock_to_sell:
-            if data.can_trade(context.symbol(stock)):
-                context.order_target_percent(context.symbol(stock), 0)
-                del context.portfolio.positions[context.symbol(stock)]
-
-
-# --------------------------------------------------------------------
-# 买入条件
-# --------------------------------------------------------------------
-def buy_action(context, data):
-    date = data.current_dt.strftime('%Y-%m-%d')
-
-    try:
-        today_enter_stock = context.enter_daily_df.loc[date]
-    except KeyError as e:
-        today_enter_stock = []
-    try:
-        today_exit_stock = context.exit_daily_df.loc[date]
-    except KeyError as e:
-        today_exit_stock = []
-
-    target_stock_to_buy = [i for i in context.selected_stock if i in today_enter_stock]
-    target_stock_to_buy = [s for s in target_stock_to_buy if s not in context.cannot_buy_stock]  # 进行更新，不能买入的股票要过滤
-
-    stock_hold_now = [equity.symbol for equity in context.portfolio.positions]  # 当前持仓股票
-
-    # 确定股票权重
-    if context.order_weight_method == 'equal_weight':
-        equal_weight = 1 / context.max_stock_count
-
-    portfolio_value = context.portfolio.portfolio_value
-    position_current_value = {pos.sid: pos.amount * pos.last_sale_price for i, pos in
-                              context.portfolio.positions.items()}
-
-    # 买入
-    if context.trading_day_index % context.buy_frequency == 0:
-        if len(stock_hold_now) >= context.max_stock_count:
-            return
-
-        today_buy_count = 0
-        if context.trade_mode == '轮动':
-            for s in target_stock_to_buy:
-                if today_buy_count + len(stock_hold_now) >= context.max_stock_count:  # 超出最大持仓数量
-                    break
-                if data.can_trade(context.symbol(s)):
-                    order_target_percent(context.symbol(s), equal_weight)
-                    today_buy_count += 1
-        else:
-            if context.can_duplication_buy == True:  # 可以重复买入，多一份买入
-                for s in target_stock_to_buy:
-                    if today_buy_count + len(stock_hold_now) >= context.max_stock_count:  # 超出最大持仓数量
-                        break
-
-                    if data.can_trade(context.symbol(s)):
-                        if context.symbol(s) in position_current_weight:
-                            curr_value = position_current_value.get(context.symbol(s))
-                            order_value(context.symbol(s), min(context.max_stock_weight * portfolio_value - curr_value,
-                                                               equal_weight * portfolio_value))
-                        else:
-                            order_value(context.symbol(s), equal_weight * portfolio_value)
-                        today_buy_count += 1
-
-            elif context.can_duplication_buy == False:  # 不可以重复买入，不买
-                for s in target_stock_to_buy:
-                    if today_buy_count + len(stock_hold_now) >= context.max_stock_count:  # 超出最大持仓数量
-                        break
-                    if s in stock_hold_now:
-                        continue
-                    else:
-                        if data.can_trade(context.symbol(s)):
-                            order_target_percent(context.symbol(s), equal_weight)
-                            today_buy_count += 1
-
-
-# --------------------------------------------------------------------
-# 风控体系
-# --------------------------------------------------------------------
-def market_risk_manage(context, data):
-    """大盘风控"""
-    date = data.current_dt.strftime('%Y-%m-%d')
-    if type(context.index_signal_data) == pd.DataFrame:
-        current_signal = context.index_signal_data.loc[date]['signal']
-        if current_signal == 'short':
-            stock_hold_now = [equity.symbol for equity in context.portfolio.positions]
-            # 平掉所有股票
-            for stock in stock_hold_now:
-                if data.can_trade(context.symbol(stock)):
-                    context.order_target_percent(context.symbol(stock), 0)
-            print('大盘出现止损信号， 平掉全部仓位，并关闭交易！')
-            context.market_risk_signal = 'short'
-    else:
-        context.market_risk_signal = 'long'
-
-
-def strategy_risk_manage(context, data):
-    """策略风控"""
-    if context.strategy_risk_conf == []:  # 没有设置策略风控
-        context.strategy_risk_signal = 'long'
-
-    else:
-        for rm in context.strategy_risk_conf:
-            if rm['method'] == 'strategy_percent_stopwin':
-                pct = rm['params']['percent']
-                portfolio_value = context.portfolio.portfolio_value
-                if portfolio_value / context.capital_base - 1 > pct:
-                    stock_hold_now = [equity.symbol for equity in context.portfolio.positions]
-                    # 平掉所有股票
-                    for stock in stock_hold_now:
-                        if data.can_trade(context.symbol(stock)):
-                            context.order_target_percent(context.symbol(stock), 0)
-                    print('策略出现止盈信号， 平掉全部仓位，并关闭交易！')
-                    context.strategy_risk_signal = 'short'
-
-            if rm['method'] == 'strategy_percent_stoploss':
-                pct = rm['params']['percent']
-                portfolio_value = context.portfolio.portfolio_value
-                if portfolio_value / context.capital_base - 1 < pct:
-                    stock_hold_now = [equity.symbol for equity in context.portfolio.positions]
-                    # 平掉所有股票
-                    for stock in stock_hold_now:
-                        if data.can_trade(context.symbol(stock)):
-                            context.order_target_percent(context.symbol(stock), 0)
-                    print('策略出现止损信号， 平掉全部仓位，并关闭交易！')
-                    context.strategy_risk_signal = 'short'
-
-
-def stock_risk_manage(context, data):
-    """个股风控"""
-    position_current_pnl = {pos.sid: (pos.last_sale_price - pos.cost_basis) / pos.cost_basis for i, pos in
-                            context.portfolio.positions.items()}
-
-    for rm in context.stock_risk_conf:
-        params_pct = rm['params']['percent']
-        if rm['method'] == 'stock_percent_stopwin':
-            for sid, pnl_pct in position_current_pnl.items():
-                if pnl_pct > params_pct:
-                    context.stock_hit_stop.append(sid.symbol)
-
-        if rm['method'] == 'stock_percent_stoploss':
-            for sid, pnl_pct in position_current_pnl.items():
-                if pnl_pct < params_pct:
-                    context.stock_hit_stop.append(sid.symbol)
-
-
 # 回测引擎：每日数据处理函数，每天执行一次
 def bigquant_run(context, data):
-    """每日运行策略逻辑"""
-    market_risk_manage(context, data)
-    strategy_risk_manage(context, data)
+    # 获取今日的日期
+    today = data.current_dt.strftime('%Y-%m-%d')
+    # 通过positions对象，使用列表生成式的方法获取目前持仓的股票列表
+    stock_hold_now = {e.symbol: p.amount * p.last_sale_price
+                      for e, p in context.perf_tracker.position_tracker.positions.items()}
 
-    if context.market_risk_signal == 'short': return
-    if context.strategy_risk_signal == 'short': return
+    # 记录用于买入股票的可用现金,因为是早盘卖股票，需要记录卖出的股票市值并在买入下单前更新可用现金；
+    # 如果是早盘买尾盘卖，则卖出时不需更新可用现金，因为尾盘卖出股票所得现金无法使用
+    cash_for_buy = context.portfolio.cash
 
-    stock_risk_manage(context, data)
+    try:
+        buy_stock = context.daily_stock_buy[today]  # 当日符合买入条件的股票
+    except:
+        buy_stock = []  # 如果没有符合条件的股票，就设置为空
 
-    sell_action(context, data)
-    buy_action(context, data)
+    try:
+        sell_stock = context.daily_stock_sell[today]  # 当日符合卖出条件的股票
+    except:
+        sell_stock = []  # 如果没有符合条件的股票，就设置为空
+
+    # 需要卖出的股票:已有持仓中符合卖出条件的股票
+    stock_to_sell = [i for i in stock_hold_now if i in sell_stock]
+    # 需要买入的股票:没有持仓且符合买入条件的股票
+    stock_to_buy = [i for i in buy_stock if i not in stock_hold_now]
+    # 需要调仓的股票：已有持仓且不符合卖出条件的股票
+    stock_to_adjust = [i for i in stock_hold_now if i not in sell_stock]
+
+    # 如果有卖出信号
+    if len(stock_to_sell) > 0:
+        for instrument in stock_to_sell:
+            sid = context.symbol(instrument)  # 将标的转化为equity格式
+            cur_position = context.portfolio.positions[sid].amount  # 持仓
+            if cur_position > 0 and data.can_trade(sid):
+                context.order_target_percent(sid, 0)  # 全部卖出
+                # 因为设置的是早盘卖出早盘买入，需要根据卖出的股票更新可用现金；如果设置尾盘卖出早盘买入，则不需更新可用现金(可以删除下面的语句)
+                cash_for_buy += stock_hold_now[instrument]
+
+    # 如果有买入信号/有持仓
+    if len(stock_to_buy) + len(stock_to_adjust) > 0:
+        weight = 1 / (len(stock_to_buy) + len(stock_to_adjust))  # 每只股票的比重为等资金比例持有
+        for instrument in stock_to_buy + stock_to_adjust:
+            sid = context.symbol(instrument)  # 将标的转化为equity格式
+            if data.can_trade(sid):
+                context.order_target_value(sid, weight * cash_for_buy)  # 买入
