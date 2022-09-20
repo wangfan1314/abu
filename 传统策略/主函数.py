@@ -6,41 +6,50 @@ def bigquant_run(context, data):
     stock_hold_now = {e.symbol: p.amount * p.last_sale_price
                       for e, p in context.perf_tracker.position_tracker.positions.items()}
 
-    # 记录用于买入股票的可用现金,因为是早盘卖股票，需要记录卖出的股票市值并在买入下单前更新可用现金；
-    # 如果是早盘买尾盘卖，则卖出时不需更新可用现金，因为尾盘卖出股票所得现金无法使用
-    cash_for_buy = context.portfolio.cash
+    # 1. 资金分配
+    # 平均持仓时间是hold_days，每日都将买入股票，每日预期使用 1/hold_days 的资金
+    # 实际操作中，会存在一定的买入误差，所以在前hold_days天，等量使用资金；之后，尽量使用剩余资金（这里设置最多用等量的1.5倍）
+    is_staging = context.trading_day_index < context.options['hold_days']  # 是否在建仓期间（前 hold_days 天）
+    cash_avg = context.portfolio.portfolio_value / context.options['hold_days']
+    cash_for_buy = min(context.portfolio.cash, (1 if is_staging else 1) * cash_avg)
+    # print(today, ":", cash_for_buy)
 
     try:
         buy_stock = context.daily_stock_buy[today]  # 当日符合买入条件的股票
     except:
         buy_stock = []  # 如果没有符合条件的股票，就设置为空
 
-    try:
-        sell_stock = context.daily_stock_sell[today]  # 当日符合卖出条件的股票
-    except:
-        sell_stock = []  # 如果没有符合条件的股票，就设置为空
-
-    # 需要卖出的股票:已有持仓中符合卖出条件的股票
-    stock_to_sell = [i for i in stock_hold_now if i in sell_stock]
     # 需要买入的股票:没有持仓且符合买入条件的股票
-    stock_to_buy = [i for i in buy_stock if i not in stock_hold_now]
-    # 需要调仓的股票：已有持仓且不符合卖出条件的股票
-    stock_to_adjust = [i for i in stock_hold_now if i not in sell_stock]
-
-    # 如果有卖出信号
-    if len(stock_to_sell) > 0:
-        for instrument in stock_to_sell:
-            sid = context.symbol(instrument)  # 将标的转化为equity格式
-            cur_position = context.portfolio.positions[sid].amount  # 持仓
-            if cur_position > 0 and data.can_trade(sid):
-                context.order_target_percent(sid, 0)  # 全部卖出
-                # 因为设置的是早盘卖出早盘买入，需要根据卖出的股票更新可用现金；如果设置尾盘卖出早盘买入，则不需更新可用现金(可以删除下面的语句)
-                cash_for_buy += stock_hold_now[instrument]
+    stock_to_buy = [i for i in buy_stock if i not in stock_hold_now][:context.stock_count]
 
     # 如果有买入信号/有持仓
-    if len(stock_to_buy) + len(stock_to_adjust) > 0:
-        weight = 1 / (len(stock_to_buy) + len(stock_to_adjust))  # 每只股票的比重为等资金比例持有
-        for instrument in stock_to_buy + stock_to_adjust:
+    if len(stock_to_buy) > 0:
+        weight = 1 / (len(stock_to_buy))  # 每只股票的比重为等资金比例持有
+        for instrument in stock_to_buy:
             sid = context.symbol(instrument)  # 将标的转化为equity格式
             if data.can_trade(sid):
                 context.order_target_value(sid, weight * cash_for_buy)  # 买入
+
+    holds = len(stock_hold_now)
+    stock_sold = []  # 记录卖出的股票，防止多次卖出出现空单
+    current_stoploss_stock = []
+    if holds > 0:
+        for instrument in stock_hold_now.keys():
+            # 计算持股天数
+            if instrument in context.instrument_hold_days:
+                context.instrument_hold_days[instrument] = context.instrument_hold_days[instrument] + 1
+            else:
+                context.instrument_hold_days[instrument] = 1
+
+            # print(today, instrument, 'hold:',context.instrument_hold_days[instrument])
+            # 持股满7天且当日非涨停则卖出
+            if instrument not in stock_sold and context.instrument_hold_days[instrument] >= context.options['hold_days']-1 and data.can_trade(context.symbol(instrument)):
+                context.order_target_percent(context.symbol(instrument), 0)
+                current_stoploss_stock.append(instrument)
+                context.instrument_hold_days.pop(instrument)
+                stock_sold.append(instrument)
+
+        if len(current_stoploss_stock) > 0:
+            # print(today, '止损股票列表', current_stoploss_stock)
+            stock_sold += current_stoploss_stock
+
