@@ -5,14 +5,14 @@ pd.set_option('expand_frame_repr', False)  # 当列太多时显示不清楚
 pd.set_option("display.max_rows", 1000)  # 设定显示最大的行数
 pd.set_option('max_colwidth', 15)  # 列长度
 df_empty = pd.DataFrame()  # 创建一个空的dataframe
-for k in range(len(m27.result)):
+for k in range(len(m31.result)):
     try:
         # 这里我们要先把·结果读取出来
-        cond1 = m27.result[k]['m26'].read_raw_perf()[
+        cond1 = m31.result[k]['m19'].read_raw_perf()[
             ['algorithm_period_return', 'alpha', 'beta', 'max_drawdown', 'sharpe']]
         res_tmp = pd.DataFrame(cond1.iloc[-1]).T
-        feature = m27.result[k]['m9'].data.read()
-        feature2 = m27.result[k]['m9'].data.read()
+        feature = m31.result[k]['m4'].data.read()
+        feature2 = m31.result[k]['m4'].data.read()
         res_tmp['feature'] = [feature2]
         res_tmp['feature_num'] = len(feature2)
         res_tmp['add_feature_name'] = [feature]
