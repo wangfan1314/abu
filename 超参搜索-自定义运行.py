@@ -11,11 +11,11 @@ def bigquant_run(bq_graph, inputs):
                    'alpha_10406=((rank(delay(((high_0-low_0)/(sum(close_0,5)/5)),2))*rank(rank(volume_0)))/(((high_0-low_0)/(sum(close_0,5)/5))/((high_0+low_0+close_0+open_0)/4-close_0)))',
                    'alpha_10189=-1*((high_0-ta_sma2(close_0,15,2))-(low_0-ta_sma2(close_0,15,2)))/close_0']
 
-    batch_num = 5  # 多少20组,需要跑多少组策略100
+    batch_num = 8  # 多少20组,需要跑多少组策略100
     batch_factor = list()
     for i in range(batch_num):
         random.seed(i)
-        factor_num = 1  # 每组多少个因子
+        factor_num = 2  # 每组多少个因子
         batch_factor.append(random.sample(factor_pool, factor_num))
 
     parameters_list = []
