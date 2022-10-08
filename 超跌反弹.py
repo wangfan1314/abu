@@ -6,12 +6,15 @@ def bigquant_run(context, data):
     # 按日期过滤得到今日的预测数据
     ranker_prediction = context.ranker_prediction[
         context.ranker_prediction.date == today]
-
+    zt_list = list(ranker_prediction[ranker_prediction.price_limit_status_0 == 3].instrument)
     try:
         # 大盘风控模块，读取风控数据
         bm_0 = ranker_prediction['bm_0'].values[0]
+        bm_2 = ranker_prediction['bm_2'].values[0]
+        bm_3 = ranker_prediction['bm_3'].values[0]
+        bm_4 = ranker_prediction['bm_4'].values[0]
         if (bm_0 > 0):
-            # print(today, '大盘风控止损触发,全仓卖出')
+            print(today, '大盘风控止损触发,全仓卖出111')
             for instrument in positions.keys():
                 context.order_target(context.symbol(instrument), 0)
                 return
@@ -42,13 +45,16 @@ def bigquant_run(context, data):
             else:
                 context.instrument_hold_days[instrument] = 1
 
+            price_history = data.history(context.symbol(instrument), fields="price", bar_count=2, frequency="1d")
+            return0 = (price_history[-1] - price_history[-2]) / price_history[-2]
             # 持股满hold_days天且当日非涨停则卖出
             if instrument not in stock_sold and context.instrument_hold_days[instrument] >= context.options['hold_days']-1 and data.can_trade(context.symbol(instrument)):
-                context.order_target_percent(context.symbol(instrument), 0)
-                cash_for_sell -= positions[instrument]
-                current_stoploss_stock.append(instrument)
-                context.instrument_hold_days.pop(instrument)
-                stock_sold.append(instrument)
+                if instrument not in zt_list:
+                    context.order_target_percent(context.symbol(instrument), 0)
+                    cash_for_sell -= positions[instrument]
+                    current_stoploss_stock.append(instrument)
+                    context.instrument_hold_days.pop(instrument)
+                    stock_sold.append(instrument)
 
         if len(current_stoploss_stock) > 0:
             # print(today, '止损股票列表', current_stoploss_stock)
@@ -64,7 +70,8 @@ def bigquant_run(context, data):
     hold_count = len(positions)
     max_count = context.options['hold_days'] * context.stock_count
     today_buy_count = min(max_count - hold_count, context.stock_count)
-    today_buy_count = max_count - hold_count
+    print(today, ':buy:', today_buy_count)
+    # today_buy_count = max_count - hold_count
     buy_cash_weights = T.norm([1 / math.log(i + 2) for i in range(0, today_buy_count)])
     buy_instruments = [k for k in list(ranker_prediction.instrument) if k not in banned_list][:len(buy_cash_weights)]
     max_cash_per_instrument = context.portfolio.portfolio_value * context.max_cash_per_instrument
