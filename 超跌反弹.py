@@ -14,7 +14,7 @@ def bigquant_run(context, data):
         bm_3 = ranker_prediction['bm_3'].values[0]
         bm_4 = ranker_prediction['bm_4'].values[0]
         if (bm_0 > 0):
-            print(today, '大盘风控止损触发,全仓卖出111')
+            # print(today, '大盘风控止损触发,全仓卖出111')
             for instrument in positions.keys():
                 context.order_target(context.symbol(instrument), 0)
                 return
