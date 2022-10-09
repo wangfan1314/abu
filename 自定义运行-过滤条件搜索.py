@@ -1,16 +1,20 @@
 def bigquant_run(bq_graph, inputs):
-    factor_pool = ['volume_0/volume_1>1.7',
+    factor_pool = ['return_0>1.03',
+                   'volume_0/volume_1>1.7',
                    'turn_0==max_turn',
                    'ac0==max_ac',
                    'sma_close_5>sma_close_10',
                    'sma_close_5>sma_close_20',
                    'sma_volume_5>sma_volume_10',
+                   'sma_volume_5>sma_volume_20',
                    'open_0<close_0',
                    'mf_net_pct_main_0<0.4',
                    'sum_mf>0.1',
                    'rank_return_0>0.9',
                    'rank_return_5>0.9',
-                   'rank_avg_mf_net_amount_5<0.5']
+                   'rank_avg_mf_net_amount_5<0.5',
+                   'shangying<0.04',
+                   'xiayingzhu<2']
 
     parameters_list = [{'parameters': {'m10.expr': '&'.join(factor_pool[:])}}]
     minus_list = ['&'.join(factor_pool[:])]
@@ -34,8 +38,6 @@ def bigquant_run(bq_graph, inputs):
     return results, minus_list
 
 
-
-
 import numpy as np
 import pandas as pd
 
@@ -51,14 +53,14 @@ for k in range(len(m24.result[0])):
         res_tmp = pd.DataFrame(cond1.iloc[-1]).T
         print('=======')
         expr = m24.result[1][k]
-        print('expr:',expr)
+        print('expr:', expr)
         res_tmp['expr'] = [expr]
 
         res_tmp.rename(columns={'algorithm_period_return': '总收益',
                                 'alpha': 'alpha',
                                 'max_drawdown': '最大回撤',
                                 'sharpe': '夏普比率',
-                                'expr': '过滤条件' }, inplace=True)
+                                'expr': '过滤条件'}, inplace=True)
         df_empty = pd.DataFrame(res_tmp, columns=['总收益', '最大回撤', 'alpha', '夏普比率', '过滤条件'])
         df_empty.to_csv('过滤条件批量测试.csv', header=['总收益', '最大回撤', 'alpha', '夏普比率', '过滤条件'], mode='a')
         print('写入完成第{}组因子'.format(k))
