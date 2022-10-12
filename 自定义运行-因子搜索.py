@@ -1,8 +1,8 @@
 def bigquant_run(bq_graph, inputs):
     factor_last = list()  # 做一个空列表储存已经测试过的因子
     try:
-        Result = pd.read_csv("因子test11组批量测试.csv", index_col=0)
-        Result_feature = list(Result["因子组合"])
+        Result = pd.read_csv('因子test11组批量测试.csv', index_col=0)
+        Result_feature = list(Result['因子组合'])
         for done in Result_feature:
             if done == '因子组合':
                 continue
@@ -109,7 +109,7 @@ def bigquant_run(bq_graph, inputs):
     parameters_list = []
     for feature in batch_factor:
         if str(feature) in factor_last:
-            print("continue111222")
+            print('continue111222')
             continue
         factor_last.append(feature)
         # Result['因子数'] = len(feature)  # 这里计数总共有测试了多少个因子
@@ -132,9 +132,10 @@ def bigquant_run(bq_graph, inputs):
 
 import numpy as np
 import pandas as pd
+import time
 
 pd.set_option('expand_frame_repr', False)  # 当列太多时显示不清楚
-pd.set_option("display.max_rows", 1000)  # 设定显示最大的行数
+pd.set_option('display.max_rows', 1000)  # 设定显示最大的行数
 pd.set_option('max_colwidth', 15)  # 列长度
 df_empty = pd.DataFrame()  # 创建一个空的dataframe
 for k in range(len(m24.result)):
@@ -142,8 +143,10 @@ for k in range(len(m24.result)):
         # 这里我们要先把·结果读取出来
         print('=======')
         cond1 = m24.result[k]['m19'].read_raw_perf()[
-            ['algorithm_period_return', 'alpha', 'beta', 'max_drawdown', 'sharpe']]
+            ['starting_value', 'algorithm_period_return', 'alpha', 'beta', 'max_drawdown', 'sharpe']]
         res_tmp = pd.DataFrame(cond1.iloc[-1]).T
+        dt = time.strftime('%Y:%m:%d %H:%M:%S', time.localtime(int(time.time())))
+        res_tmp['starting_value'] = [dt]
         feature = m24.result[k]['m4'].data.read()
         print('feature:', feature)
         feature2 = m24.result[k]['m4'].data.read()
@@ -151,18 +154,27 @@ for k in range(len(m24.result)):
         res_tmp['feature_num'] = len(feature2)
         res_tmp['add_feature_name'] = [feature]
 
-        res_tmp.rename(columns={'algorithm_period_return': '总收益',
+        res_tmp.rename(columns={'starting_value': '时间',
+                                'algorithm_period_return': '总收益',
                                 'alpha': 'alpha',
                                 'max_drawdown': '最大回撤',
                                 'sharpe': '夏普比率',
                                 'feature': '因子组合',
                                 'add_feature_name': '新增因子',
                                 'feature_num': '因子数', }, inplace=True)
-        df_empty = pd.DataFrame(res_tmp, columns=['总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数'])
-        df_empty.to_csv('因子test11组批量测试.csv', header=['总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数'], mode='a')
+        df_empty = pd.DataFrame(res_tmp, columns=['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数'])
+        try:
+            Result = pd.read_csv('因子test11组批量测试.csv', index_col=0)
+            df_empty.to_csv('因子test11组批量测试.csv', header=False, mode='a', index=False)
+        except Exception as e:
+            df_empty.to_csv('因子test11组批量测试.csv', header=['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数'], mode='a',
+                            index=False)
         print('写入完成第{}组因子'.format(k))
     except:
         print('第{}组因子出错!请检查'.format(k))
         continue
 
+df = pd.read_csv('因子test11组批量测试.csv')
+df.sort_values('夏普比率', inplace=True, ascending=False)
+df.to_csv('因子test11组批量测试.csv', header=['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数'], mode='w', index=False)
 print('csv追加写入结束')
