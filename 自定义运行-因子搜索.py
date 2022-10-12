@@ -138,6 +138,8 @@ pd.set_option('expand_frame_repr', False)  # 当列太多时显示不清楚
 pd.set_option('display.max_rows', 1000)  # 设定显示最大的行数
 pd.set_option('max_colwidth', 15)  # 列长度
 df_empty = pd.DataFrame()  # 创建一个空的dataframe
+file_name = '因子test22组批量测试.csv'
+columns = ['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数']
 for k in range(len(m24.result)):
     try:
         # 这里我们要先把·结果读取出来
@@ -162,18 +164,18 @@ for k in range(len(m24.result)):
                                 'feature': '因子组合',
                                 'add_feature_name': '新增因子',
                                 'feature_num': '因子数', }, inplace=True)
-        df_empty = pd.DataFrame(res_tmp, columns=['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数'])
+        df_empty = pd.DataFrame(res_tmp, columns=columns)
         try:
-            Result = pd.read_csv('因子test11组批量测试.csv', index_col=0)
-            df_empty.to_csv('因子test11组批量测试.csv', header=False, mode='a', index=False)
+            Result = pd.read_csv(file_name, index_col=0)
+            df_empty.to_csv(file_name, header=False, mode='a', index=False)
         except Exception as e:
-            df_empty.to_csv('因子test11组批量测试.csv', header=['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数'], mode='a', index=False)
+            df_empty.to_csv(file_name, header=columns, mode='a', index=False)
         print('写入完成第{}组因子'.format(k))
     except:
         print('第{}组因子出错!请检查'.format(k))
         continue
 
-df = pd.read_csv('因子test11组批量测试.csv')
+df = pd.read_csv(file_name)
 df.sort_values('夏普比率', inplace=True, ascending=False)
-df.to_csv('因子test11组批量测试.csv', header=['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数'], mode='w', index=False)
+df.to_csv(file_name, header=columns, mode='w', index=False)
 print('csv追加写入结束')
