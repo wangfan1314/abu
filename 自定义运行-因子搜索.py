@@ -167,8 +167,7 @@ for k in range(len(m24.result)):
             Result = pd.read_csv('因子test11组批量测试.csv', index_col=0)
             df_empty.to_csv('因子test11组批量测试.csv', header=False, mode='a', index=False)
         except Exception as e:
-            df_empty.to_csv('因子test11组批量测试.csv', header=['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数'], mode='a',
-                            index=False)
+            df_empty.to_csv('因子test11组批量测试.csv', header=['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数'], mode='a', index=False)
         print('写入完成第{}组因子'.format(k))
     except:
         print('第{}组因子出错!请检查'.format(k))
