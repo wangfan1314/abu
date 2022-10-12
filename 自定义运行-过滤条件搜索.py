@@ -1,4 +1,5 @@
 def bigquant_run(bq_graph, inputs):
+    candidate = ['return_0>-100']
     factor_pool = ['return_0>1.03',
                    'volume_0/volume_1>1.7',
                    'turn_0==max_turn',
@@ -16,12 +17,13 @@ def bigquant_run(bq_graph, inputs):
                    'shangying<0.04',
                    'xiayingzhu<2']
 
-    parameters_list = [{'parameters': {'m10.expr': '&'.join(factor_pool[:])}}]
-    minus_list = ['&'.join(factor_pool[:])]
+    parameters_list = [{'parameters': {'m10.expr': '&'.join(candidate[:])}}]
     for feature in factor_pool:
-        tmp = factor_pool[:]
-        tmp.remove(feature)
-        minus_list.append(feature)
+        if feature in candidate:
+            print('feature exits', feature)
+            continue
+        tmp = candidate[:]
+        tmp.append(feature)
         parameters = {'m10.expr': '&'.join(tmp)}
         parameters_list.append({'parameters': parameters})
 
@@ -32,10 +34,9 @@ def bigquant_run(bq_graph, inputs):
             print('ERROR-----------', e)
             return None
 
-    # print("parameters_list:", parameters_list)
-    print("minus_list:", minus_list)
+    print("parameters_list:", parameters_list)
     results = T.parallel_map(run, parameters_list, max_workers=2, remote_run=False, silent=False)  # 任务数 # 是否远程#
-    return results, minus_list
+    return results, parameters_list
 
 
 import numpy as np
