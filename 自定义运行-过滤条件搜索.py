@@ -63,7 +63,7 @@ def bigquant_run(bq_graph, inputs):
             print('ERROR-----------', e)
             return None
 
-    print("parameters_list:", parameters_list)
+    # print("parameters_list:", parameters_list)
     results = T.parallel_map(run, parameters_list, max_workers=2, remote_run=False, silent=False)  # 任务数 # 是否远程#
     return results, parameters_list
 
@@ -81,7 +81,7 @@ columns = ['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '过�
 for k in range(len(m24.result[0])):
     try:
         # 这里我们要先把·结果读取出来
-        cond1 = m24.result[k]['m19'].read_raw_perf()[
+        cond1 = m24.result[0][k]['m19'].read_raw_perf()[
             ['starting_value', 'algorithm_period_return', 'alpha', 'beta', 'max_drawdown', 'sharpe']]
         res_tmp = pd.DataFrame(cond1.iloc[-1]).T
         dt = time.strftime('%Y:%m:%d %H:%M:%S', time.localtime(int(time.time())))
