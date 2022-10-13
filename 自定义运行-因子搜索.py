@@ -96,7 +96,8 @@ def bigquant_run(bq_graph, inputs):
                    '(sign(delta(volume_0,1))*(-1*delta(close_0,1)))',
                    '((rank(delay(((high_0-low_0)/(sum(close_0,5)/5)),2))*rank(rank(volume_0)))/(((high_0-low_0)/(sum(close_0,5)/5))/((high_0+low_0+close_0+open_0)/4-close_0)))',
                    'fs_total_equity_0/market_cap_0',
-                   'mean(close_0,3)/close_0']
+                   'mean(close_0,3)/close_0',
+                   'ta_trix(close_0']
 
     batch_num = 8  # 多少20组,需要跑多少组策略100
     batch_factor = list()
@@ -138,7 +139,7 @@ pd.set_option('expand_frame_repr', False)  # 当列太多时显示不清楚
 pd.set_option('display.max_rows', 1000)  # 设定显示最大的行数
 pd.set_option('max_colwidth', 15)  # 列长度
 df_empty = pd.DataFrame()  # 创建一个空的dataframe
-file_name = '因子test22组批量测试.csv'
+file_name = '因子test11组批量测试.csv'
 columns = ['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数']
 for k in range(len(m24.result)):
     try:
