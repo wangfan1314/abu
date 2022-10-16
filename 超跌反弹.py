@@ -13,8 +13,8 @@ def bigquant_run(context, data):
         bm_2 = ranker_prediction['bm_2'].values[0]
         bm_3 = ranker_prediction['bm_3'].values[0]
         bm_4 = ranker_prediction['bm_4'].values[0]
-        if (bm_0 > 0):
-            # print(today, '大盘风控止损触发,全仓卖出111')
+        if (bm_0 > 100):
+            #print(today, '大盘风控止损触发,全仓卖出111')
             for instrument in positions.keys():
                 context.order_target(context.symbol(instrument), 0)
                 return
@@ -70,6 +70,7 @@ def bigquant_run(context, data):
     hold_count = len(positions)
     max_count = context.options['hold_days'] * context.stock_count
     today_buy_count = min(max_count - hold_count, context.stock_count)
+    #print(today, ':buy:', today_buy_count)
     # today_buy_count = max_count - hold_count
     buy_cash_weights = T.norm([1 / math.log(i + 2) for i in range(0, today_buy_count)])
     buy_instruments = [k for k in list(ranker_prediction.instrument) if k not in banned_list][:len(buy_cash_weights)]
