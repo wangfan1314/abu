@@ -1,4 +1,5 @@
 def bigquant_run(bq_graph, inputs):
+    batch_num = 4  # 多少20组,需要跑多少组策略100
     factor_last = list()  # 做一个空列表储存已经测试过的因子
     try:
         Result = pd.read_csv('因子test11组批量测试.csv', index_col=0)
@@ -19,7 +20,7 @@ def bigquant_run(bq_graph, inputs):
                    'fs_roa_ttm_0',
                    'fs_cash_ratio_0',
                    'close_0>ts_max(close_0,56)',
-                   'ta_sma_10_0/ta_sma_30_0#',
+                   'ta_sma_10_0/ta_sma_30_0',
                    'ta_sar_0',
                    'swing_volatility_10_0/swing_volatility_60_0',
                    'ta_cci_14_0',
@@ -97,9 +98,8 @@ def bigquant_run(bq_graph, inputs):
                    '((rank(delay(((high_0-low_0)/(sum(close_0,5)/5)),2))*rank(rank(volume_0)))/(((high_0-low_0)/(sum(close_0,5)/5))/((high_0+low_0+close_0+open_0)/4-close_0)))',
                    'fs_total_equity_0/market_cap_0',
                    'mean(close_0,3)/close_0',
-                   'ta_trix(close_0']
+                   'ta_trix(close_0)']
 
-    batch_num = 8  # 多少20组,需要跑多少组策略100
     batch_factor = list()
     for i in range(batch_num):
         # factor_num = 2  # 每组多少个因子
@@ -108,11 +108,18 @@ def bigquant_run(bq_graph, inputs):
 
     # print('batch_factor', batch_factor)
     parameters_list = []
+    index_list = []
     for feature in batch_factor:
         if str(feature) in factor_last:
             print('continue111222')
             continue
         factor_last.append(feature)
+        tmp_index = []
+        for tmp in feature:
+            tmp_index.append(factor_pool.index(tmp))
+        tmp_index.sort()
+        tmp_str = [str(x) for x in tmp_index]
+        index_list.append('_'.join(tmp_str))
         # Result['因子数'] = len(feature)  # 这里计数总共有测试了多少个因子
         # Result['新增因子'] = [feature]  # 这里记录新测试的是哪个因子
         # Result.to_csv('因子表.csv', header=['新增因子', '因子数'], mode='a')  # 把测试好的因子追加写入因子表
@@ -126,9 +133,9 @@ def bigquant_run(bq_graph, inputs):
             print('ERROR-----------', e)
             return None
 
-    print('parameters_list', parameters_list)
+    print('index_list', index_list)
     results = T.parallel_map(run, parameters_list, max_workers=4, remote_run=False, silent=True)  # 任务数 # 是否远程#
-    return results
+    return results, parameters_list, index_list
 
 
 import numpy as np
@@ -141,20 +148,19 @@ pd.set_option('max_colwidth', 15)  # 列长度
 df_empty = pd.DataFrame()  # 创建一个空的dataframe
 file_name = '因子test11组批量测试.csv'
 columns = ['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数']
-for k in range(len(m24.result)):
+for k in range(len(m24.result[0])):
     try:
         # 这里我们要先把·结果读取出来
+        feature = m24.result[1][k]
+        print('feature:', feature)
         print('=======')
-        cond1 = m24.result[k]['m19'].read_raw_perf()[
+        cond1 = m24.result[0][k]['m19'].read_raw_perf()[
             ['starting_value', 'algorithm_period_return', 'alpha', 'beta', 'max_drawdown', 'sharpe']]
         res_tmp = pd.DataFrame(cond1.iloc[-1]).T
         dt = time.strftime('%Y:%m:%d %H:%M:%S', time.localtime(int(time.time())))
         res_tmp['starting_value'] = [dt]
-        feature = m24.result[k]['m4'].data.read()
-        print('feature:', feature)
-        feature2 = m24.result[k]['m4'].data.read()
-        res_tmp['feature'] = [feature2]
-        res_tmp['feature_num'] = len(feature2)
+        res_tmp['feature'] = [feature]
+        res_tmp['feature_num'] = len(feature)
         res_tmp['add_feature_name'] = [feature]
 
         res_tmp.rename(columns={'starting_value': '时间',
@@ -171,6 +177,7 @@ for k in range(len(m24.result)):
             df_empty.to_csv(file_name, header=False, mode='a', index=False)
         except Exception as e:
             df_empty.to_csv(file_name, header=columns, mode='a', index=False)
+        pd.DataFrame([m24.result[0][k]['m6'].model_id]).to_pickle('/home/bigquant/work/userlib/batch_test/model_batch'+m24.result[2][k] + '.csv')
         print('写入完成第{}组因子'.format(k))
     except:
         print('第{}组因子出错!请检查'.format(k))
