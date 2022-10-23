@@ -1,5 +1,5 @@
 def bigquant_run(bq_graph, inputs):
-    candidate = ['return_x0>-100']
+    candidate = ['turn_0>1.5*avg_turn_5']
     factor_pool = ['return_x0>1.03',
                    'volume_x0/volume_x1>1.7',
                    'turn_x0==max_turn',
@@ -27,7 +27,6 @@ def bigquant_run(bq_graph, inputs):
                    "cond5>1.25",
                    "cond6>1.16",
                    "cond28>5",
-                   "fac2==1",
                    "fac2==0",
                    "volume_x0>volume_x1",
                    "cond17==1",

@@ -31,7 +31,7 @@ def bigquant_run(bq_graph, inputs):
                    '(close_0-close_30)/close_30',
                    '(close_0-close_5)/close_5',
                    'ta_bbands_middleband_28_0',
-                   'sum(price_limit_status_0==3,80)',
+                   'pl1=sum(price_limit_status_0==3,80)',
                    'close_0',
                    'open_0',
                    'high_0',
@@ -109,6 +109,7 @@ def bigquant_run(bq_graph, inputs):
     # print('batch_factor', batch_factor)
     parameters_list = []
     index_list = []
+    feature_list = []
     for feature in batch_factor:
         if str(feature) in factor_last:
             print('continue111222')
@@ -123,7 +124,8 @@ def bigquant_run(bq_graph, inputs):
         # Result['因子数'] = len(feature)  # 这里计数总共有测试了多少个因子
         # Result['新增因子'] = [feature]  # 这里记录新测试的是哪个因子
         # Result.to_csv('因子表.csv', header=['新增因子', '因子数'], mode='a')  # 把测试好的因子追加写入因子表
-        parameters = {'m4.features': '\n'.join(feature)}
+        feature_list.append(feature)
+        parameters = {'m15.features': '\n'.join(feature)}
         parameters_list.append({'parameters': parameters})
 
     def run(parameters):
@@ -133,9 +135,9 @@ def bigquant_run(bq_graph, inputs):
             print('ERROR-----------', e)
             return None
 
-    print('index_list', index_list)
+    print('feature_list', feature_list)
     results = T.parallel_map(run, parameters_list, max_workers=4, remote_run=False, silent=True)  # 任务数 # 是否远程#
-    return results, parameters_list, index_list
+    return results, feature_list, index_list
 
 
 import numpy as np
@@ -146,22 +148,23 @@ pd.set_option('expand_frame_repr', False)  # 当列太多时显示不清楚
 pd.set_option('display.max_rows', 1000)  # 设定显示最大的行数
 pd.set_option('max_colwidth', 15)  # 列长度
 df_empty = pd.DataFrame()  # 创建一个空的dataframe
-file_name = '因子test11组批量测试.csv'
-columns = ['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '因子组合', '新増因子', '因子数']
-for k in range(len(m24.result[0])):
+file_name = '因子zt组批量测试.csv'
+columns = ['时间', '总收益', 'alpha', '最大回撤', '夏普比率', '因子组合', '模型','因子数']
+for k in range(len(m35.result[0])):
     try:
         # 这里我们要先把·结果读取出来
-        feature = m24.result[1][k]
-        print('feature:', feature)
+        feature = m35.result[1][k]
+        #print(feature)
         print('=======')
-        cond1 = m24.result[0][k]['m19'].read_raw_perf()[
+        cond1 = m35.result[0][k]['m14'].read_raw_perf()[
             ['starting_value', 'algorithm_period_return', 'alpha', 'beta', 'max_drawdown', 'sharpe']]
         res_tmp = pd.DataFrame(cond1.iloc[-1]).T
         dt = time.strftime('%Y:%m:%d %H:%M:%S', time.localtime(int(time.time())))
         res_tmp['starting_value'] = [dt]
         res_tmp['feature'] = [feature]
+        model_name = '/home/bigquant/work/userlib/batch_test/model_batch'+m35.result[2][k] + '.csv'
+        res_tmp['model'] = model_name
         res_tmp['feature_num'] = len(feature)
-        res_tmp['add_feature_name'] = [feature]
 
         res_tmp.rename(columns={'starting_value': '时间',
                                 'algorithm_period_return': '总收益',
@@ -169,7 +172,7 @@ for k in range(len(m24.result[0])):
                                 'max_drawdown': '最大回撤',
                                 'sharpe': '夏普比率',
                                 'feature': '因子组合',
-                                'add_feature_name': '新增因子',
+                                'model': '模型',
                                 'feature_num': '因子数', }, inplace=True)
         df_empty = pd.DataFrame(res_tmp, columns=columns)
         try:
@@ -177,7 +180,7 @@ for k in range(len(m24.result[0])):
             df_empty.to_csv(file_name, header=False, mode='a', index=False)
         except Exception as e:
             df_empty.to_csv(file_name, header=columns, mode='a', index=False)
-        pd.DataFrame([m24.result[0][k]['m6'].model_id]).to_pickle('/home/bigquant/work/userlib/batch_test/model_batch'+m24.result[2][k] + '.csv')
+        pd.DataFrame([m35.result[0][k]['m4'].model_id]).to_pickle(model_name)
         print('写入完成第{}组因子'.format(k))
     except:
         print('第{}组因子出错!请检查'.format(k))
