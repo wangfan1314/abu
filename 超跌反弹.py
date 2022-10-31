@@ -46,15 +46,17 @@ def bigquant_run(context, data):
                 context.instrument_hold_days[instrument] = 1
 
             price_history = data.history(context.symbol(instrument), fields="price", bar_count=2, frequency="1d")
-            return0 = (price_history[-1] - price_history[-2]) / price_history[-2]
+            is_zt = price_history[-1] == round(price_history[-2]*1.1, 2)
             # 持股满hold_days天且当日非涨停则卖出
             if instrument not in stock_sold and context.instrument_hold_days[instrument] >= context.options['hold_days']-1 and data.can_trade(context.symbol(instrument)):
-                if instrument not in zt_list:
+                if not is_zt:
                     context.order_target_percent(context.symbol(instrument), 0)
                     cash_for_sell -= positions[instrument]
                     current_stoploss_stock.append(instrument)
                     context.instrument_hold_days.pop(instrument)
                     stock_sold.append(instrument)
+                else:
+                    print(today, instrument, 'is_zt')
 
         if len(current_stoploss_stock) > 0:
             # print(today, '止损股票列表', current_stoploss_stock)

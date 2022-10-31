@@ -1,5 +1,5 @@
 def bigquant_run(bq_graph, inputs):
-    candidate = ['turn_0>1.5*avg_turn_5']
+    candidate = ['price_limit_status_0==3']
     factor_pool = ['return_x0>1.03',
                    'volume_x0/volume_x1>1.7',
                    'turn_x0==max_turn',
@@ -52,7 +52,7 @@ def bigquant_run(bq_graph, inputs):
             continue
         tmp = candidate[:]
         tmp.append(feature)
-        parameters = {'m10.expr': '&'.join(tmp)}
+        parameters = {'m16.expr': '&'.join(tmp)}
         parameters_list.append({'parameters': parameters})
 
     def run(parameters):
@@ -77,16 +77,16 @@ pd.set_option('max_colwidth', 15)  # 列长度
 df_empty = pd.DataFrame()  # 创建一个空的dataframe
 file_name = '过滤条件批量测试.csv'
 columns = ['时间', '总收益', '最大回撤', 'alpha', '夏普比率', '过滤条件']
-for k in range(len(m24.result[0])):
+for k in range(len(m35.result[0])):
     try:
         # 这里我们要先把·结果读取出来
-        cond1 = m24.result[0][k]['m19'].read_raw_perf()[
+        cond1 = m35.result[0][k]['m14'].read_raw_perf()[
             ['starting_value', 'algorithm_period_return', 'alpha', 'beta', 'max_drawdown', 'sharpe']]
         res_tmp = pd.DataFrame(cond1.iloc[-1]).T
         dt = time.strftime('%Y:%m:%d %H:%M:%S', time.localtime(int(time.time())))
         res_tmp['starting_value'] = [dt]
         print('=======')
-        expr = m24.result[1][k]
+        expr = m35.result[1][k]
         print('expr:', expr)
         res_tmp['expr'] = [expr]
 
