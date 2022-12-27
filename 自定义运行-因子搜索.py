@@ -1,8 +1,8 @@
 def bigquant_run(bq_graph, inputs):
-    batch_num = 4  # 多少20组,需要跑多少组策略100
+    batch_num = 150  # 多少20组,需要跑多少组策略100
     factor_last = list()  # 做一个空列表储存已经测试过的因子
     try:
-        Result = pd.read_csv('因子test11组批量测试.csv', index_col=0)
+        Result = pd.read_csv('因子st批量测试.csv', index_col=0)
         Result_feature = list(Result['因子组合'])
         for done in Result_feature:
             if done == '因子组合':
@@ -17,7 +17,6 @@ def bigquant_run(bq_graph, inputs):
                    'pe_ttm_0',
                    'pb_lf_0',
                    'sum(mf_net_pct_main_0>0.12,30)',
-                   'fs_roa_ttm_0',
                    'fs_cash_ratio_0',
                    'close_0>ts_max(close_0,56)',
                    'ta_sma_10_0/ta_sma_30_0',
@@ -98,15 +97,28 @@ def bigquant_run(bq_graph, inputs):
                    '((rank(delay(((high_0-low_0)/(sum(close_0,5)/5)),2))*rank(rank(volume_0)))/(((high_0-low_0)/(sum(close_0,5)/5))/((high_0+low_0+close_0+open_0)/4-close_0)))',
                    'fs_total_equity_0/market_cap_0',
                    'mean(close_0,3)/close_0',
+                   'avg_amount_0/avg_amount_5',
+                    'avg_amount_5/avg_amount_20',
+                    'rank_avg_amount_0/rank_avg_amount_5',
+                    'rank_avg_amount_5/rank_avg_amount_10',
+                    'rank_return_0',
+                    'rank_return_5',
+                    'rank_return_10',
+                    'rank_return_0/rank_return_5',
+                    'rank_return_5/rank_return_10',
+                    'amount_0/amount_1',
+                    'high_0/close_1',
+                    'hpbl10=ts_max(close_0,10)/ts_min(close_0,10)',
+                    'lxsz_days=max(where(sum(where(return_0>1,1,0),1)==1,1,0),where(sum(where(return_0>1,1,0),2)==2,2,0),where(sum(where(return_0>1,1,0),3)==3,3,0),where(sum(where(return_0>1,1,0),4)==4,4,0),where(sum(where(return_0>1,1,0),5)==5,5,0),where(sum(where(return_0>1,1,0),6)==6,6,0),where(sum(where(return_0>1,1,0),8)==8,8,0),where(sum(where(return_0>1,1,0),10)==10,10,0))',
+                    'lxxd_days=max(where(sum(where(return_0<1,1,0),1)==1,1,0),where(sum(where(return_0<1,1,0),2)==2,2,0),where(sum(where(return_0<1,1,0),3)==3,3,0),where(sum(where(return_0<1,1,0),4)==4,4,0),where(sum(where(return_0<1,1,0),5)==5,5,0),where(sum(where(return_0<1,1,0),6)==6,6,0),where(sum(where(return_0<1,1,0),8)==8,8,0),where(sum(where(return_0<1,1,0),10)==10,10,0))',
                    'ta_trix(close_0)']
 
     batch_factor = list()
     for i in range(batch_num):
         # factor_num = 2  # 每组多少个因子
-        factor_num = random.randint(8, 15)
+        factor_num = random.randint(11, 28)
         batch_factor.append(random.sample(factor_pool, factor_num))
 
-    # print('batch_factor', batch_factor)
     parameters_list = []
     index_list = []
     feature_list = []
@@ -135,7 +147,8 @@ def bigquant_run(bq_graph, inputs):
             print('ERROR-----------', e)
             return None
 
-    print('feature_list', feature_list)
+    print('factor_last', len(factor_last))
+    print('feature_list', len(feature_list))
     results = T.parallel_map(run, parameters_list, max_workers=4, remote_run=False, silent=True)  # 任务数 # 是否远程#
     return results, feature_list, index_list
 
@@ -148,13 +161,14 @@ pd.set_option('expand_frame_repr', False)  # 当列太多时显示不清楚
 pd.set_option('display.max_rows', 1000)  # 设定显示最大的行数
 pd.set_option('max_colwidth', 15)  # 列长度
 df_empty = pd.DataFrame()  # 创建一个空的dataframe
-file_name = '因子zt组批量测试.csv'
-columns = ['时间', '总收益', 'alpha', '最大回撤', '夏普比率', '因子组合', '模型','因子数']
+file_name = '因子st批量测试.csv'
+columns = ['时间', '总收益', 'alpha', '最大回撤', '夏普比率', '2021总收益', '2021alpha', '2021最大回撤', '2021夏普比率', '因子组合', '因子数']
 for k in range(len(m35.result[0])):
+    # for k in range(1):
     try:
         # 这里我们要先把·结果读取出来
         feature = m35.result[1][k]
-        #print(feature)
+        # print(feature)
         print('=======')
         cond1 = m35.result[0][k]['m14'].read_raw_perf()[
             ['starting_value', 'algorithm_period_return', 'alpha', 'beta', 'max_drawdown', 'sharpe']]
@@ -162,17 +176,22 @@ for k in range(len(m35.result[0])):
         dt = time.strftime('%Y:%m:%d %H:%M:%S', time.localtime(int(time.time())))
         res_tmp['starting_value'] = [dt]
         res_tmp['feature'] = [feature]
-        model_name = '/home/bigquant/work/userlib/batch_test/model_batch'+m35.result[2][k] + '.csv'
-        res_tmp['model'] = model_name
         res_tmp['feature_num'] = len(feature)
+        res_tmp['2021总收益'] = ''
+        res_tmp['2021alpha'] = ''
+        res_tmp['2021最大回撤'] = ''
+        res_tmp['2021夏普比率'] = ''
 
         res_tmp.rename(columns={'starting_value': '时间',
                                 'algorithm_period_return': '总收益',
                                 'alpha': 'alpha',
                                 'max_drawdown': '最大回撤',
                                 'sharpe': '夏普比率',
+                                '2021总收益': '2021总收益',
+                                '2021alpha': '2021alpha',
+                                '2021最大回撤': '2021最大回撤',
+                                '2021夏普比率': '2021夏普比率',
                                 'feature': '因子组合',
-                                'model': '模型',
                                 'feature_num': '因子数', }, inplace=True)
         df_empty = pd.DataFrame(res_tmp, columns=columns)
         try:
@@ -180,7 +199,6 @@ for k in range(len(m35.result[0])):
             df_empty.to_csv(file_name, header=False, mode='a', index=False)
         except Exception as e:
             df_empty.to_csv(file_name, header=columns, mode='a', index=False)
-        pd.DataFrame([m35.result[0][k]['m4'].model_id]).to_pickle(model_name)
         print('写入完成第{}组因子'.format(k))
     except:
         print('第{}组因子出错!请检查'.format(k))
@@ -190,3 +208,36 @@ df = pd.read_csv(file_name)
 df.sort_values('夏普比率', inplace=True, ascending=False)
 df.to_csv(file_name, header=columns, mode='w', index=False)
 print('csv追加写入结束')
+
+from datetime import datetime
+
+print(datetime.now())
+print(len(m35.result[0]))
+for i in range(len(m35.result[0])):
+    try:
+        print('===', i)
+        perf = m35.result[0][i]['m14'].raw_perf.read()
+        re = perf['algorithm_period_return'].iloc[-1]
+        days = perf['trading_days'].iloc[-1]
+        annual_re = (math.pow(1 + re, 252 / days) - 1) * 100
+        sharpe = round(perf['sharpe'].iloc[-1], 2)
+        if annual_re <= 0 or perf['max_drawdown'].iloc[-1] * 100 < -20 or sharpe < 2:
+            continue
+        feature = m35.result[1][i]
+        print(feature)
+        print("年化收益：{}%".format(round(annual_re, 2)))
+        print("收益率：{}%".format(round(perf['algorithm_period_return'].iloc[-1] * 100, 2)))
+        print("基准收益率：{}%".format(round(perf['benchmark_period_return'].iloc[-1] * 100, 2)))
+        print("阿尔法：{}".format(round(perf['alpha'].iloc[-1], 2)))
+        print("贝塔：{}".format(round(perf['beta'].iloc[-1], 2)))
+        print("夏普比率：{}".format(sharpe))
+        print("胜率：{}".format(round(perf['win_percent'].iloc[-1], 2)))
+        print("收益波动率：{}%".format(round(perf['algo_volatility'].iloc[-1] * 100, 2)))
+        print("信息比率：{}".format(round(perf['information'].iloc[-1], 2)))
+        print("最大回撤：{}%".format(round(perf['max_drawdown'].iloc[-1] * 100, 2)))
+
+        T.plot(perf['algorithm_period_return'], title='收益', chart_type='line')
+
+    except Exception as e:
+        print(e)
+        continue
