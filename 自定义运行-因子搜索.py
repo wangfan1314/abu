@@ -1,5 +1,5 @@
 def bigquant_run(bq_graph, inputs):
-    batch_num = 150  # 多少20组,需要跑多少组策略100
+    batch_num = 4  # 多少20组,需要跑多少组策略100
     factor_last = list()  # 做一个空列表储存已经测试过的因子
     try:
         Result = pd.read_csv('因子st批量测试.csv', index_col=0)
@@ -98,41 +98,114 @@ def bigquant_run(bq_graph, inputs):
                    'fs_total_equity_0/market_cap_0',
                    'mean(close_0,3)/close_0',
                    'avg_amount_0/avg_amount_5',
-                    'avg_amount_5/avg_amount_20',
-                    'rank_avg_amount_0/rank_avg_amount_5',
-                    'rank_avg_amount_5/rank_avg_amount_10',
-                    'rank_return_0',
-                    'rank_return_5',
-                    'rank_return_10',
-                    'rank_return_0/rank_return_5',
-                    'rank_return_5/rank_return_10',
-                    'amount_0/amount_1',
-                    'high_0/close_1',
-                    'hpbl10=ts_max(close_0,10)/ts_min(close_0,10)',
-                    'lxsz_days=max(where(sum(where(return_0>1,1,0),1)==1,1,0),where(sum(where(return_0>1,1,0),2)==2,2,0),where(sum(where(return_0>1,1,0),3)==3,3,0),where(sum(where(return_0>1,1,0),4)==4,4,0),where(sum(where(return_0>1,1,0),5)==5,5,0),where(sum(where(return_0>1,1,0),6)==6,6,0),where(sum(where(return_0>1,1,0),8)==8,8,0),where(sum(where(return_0>1,1,0),10)==10,10,0))',
-                    'lxxd_days=max(where(sum(where(return_0<1,1,0),1)==1,1,0),where(sum(where(return_0<1,1,0),2)==2,2,0),where(sum(where(return_0<1,1,0),3)==3,3,0),where(sum(where(return_0<1,1,0),4)==4,4,0),where(sum(where(return_0<1,1,0),5)==5,5,0),where(sum(where(return_0<1,1,0),6)==6,6,0),where(sum(where(return_0<1,1,0),8)==8,8,0),where(sum(where(return_0<1,1,0),10)==10,10,0))',
+                   'avg_amount_5/avg_amount_20',
+                   'rank_avg_amount_0/rank_avg_amount_5',
+                   'rank_avg_amount_5/rank_avg_amount_10',
+                   'rank_return_0',
+                   'rank_return_5',
+                   'rank_return_10',
+                   'rank_return_0/rank_return_5',
+                   'rank_return_5/rank_return_10',
+                   'amount_0/amount_1',
+                   'high_0/close_1',
+                   'hpbl10=ts_max(close_0,10)/ts_min(close_0,10)',
+                   'lxsz_days=max(where(sum(where(return_0>1,1,0),1)==1,1,0),where(sum(where(return_0>1,1,0),2)==2,2,0),where(sum(where(return_0>1,1,0),3)==3,3,0),where(sum(where(return_0>1,1,0),4)==4,4,0),where(sum(where(return_0>1,1,0),5)==5,5,0),where(sum(where(return_0>1,1,0),6)==6,6,0),where(sum(where(return_0>1,1,0),8)==8,8,0),where(sum(where(return_0>1,1,0),10)==10,10,0))',
+                   'lxxd_days=max(where(sum(where(return_0<1,1,0),1)==1,1,0),where(sum(where(return_0<1,1,0),2)==2,2,0),where(sum(where(return_0<1,1,0),3)==3,3,0),where(sum(where(return_0<1,1,0),4)==4,4,0),where(sum(where(return_0<1,1,0),5)==5,5,0),where(sum(where(return_0<1,1,0),6)==6,6,0),where(sum(where(return_0<1,1,0),8)==8,8,0),where(sum(where(return_0<1,1,0),10)==10,10,0))',
                    'ta_trix(close_0)']
 
+    hf_factor_pool = ['hf_real_var',
+                      'hf_real_kurtosis',
+                      'hf_real_skew',
+                      'hf_real_std',
+                      'hf_real_upvar',
+                      'hf_real_downvar',
+                      'hf_real_upstd',
+                      'hf_real_downstd',
+                      'hf_ratio_realupstd',
+                      'hf_ratio_realdownstd',
+                      'hf_real_var_3',
+                      'hf_real_kurtosis_3',
+                      'hf_real_skew_3',
+                      'hf_real_std_3',
+                      'hf_real_var_6',
+                      'hf_real_kurtosis_6',
+                      'hf_real_skew_6',
+                      'hf_real_std_6',
+                      'hf_volume_var',
+                      'hf_volume_kurtosis',
+                      'hf_volume_skew',
+                      'hf_volume_std',
+                      'hf_ratio_volume_3',
+                      'hf_ratio_volume_5',
+                      'hf_corr_vp_3',
+                      'hf_corr_vp_4',
+                      'hf_corr_vp_5',
+                      'hf_corr_vp_6',
+                      'hf_ret_in_3',
+                      'hf_ret_in_5',
+                      'hf_ret_in_6',
+                      'hf_trend_str_3',
+                      'hf_trend_str_5',
+                      'hf_trend_str_6',
+                      'hf_volume_ratio_stag e1',
+                      'hf_volume_ratio_stag e2',
+                      'hf_cross_night_chg',
+                      'hf_price_chg_stage1',
+                      'hf_price_chg_stage2',
+                      'hf_price_range_stage 1',
+                      'hf_price_range_stage 2',
+                      'hf_volume_auction_a m_ratio',
+                      'hf_amount_auction_a m_ratio',
+                      'hf_open_max_cng_sta ge1',
+                      'hf_open_min_cng_sta ge1',
+                      'hf_open_max_cng_sta ge2',
+                      'hf_open_min_cng_sta ge2',
+                      'hf_last_price_stage1',
+                      'hf_last_price_stage2',
+                      'hf_price_increase_sta ge2',
+                      'hf_price_decrease_sta ge2',
+                      'hf_price_avg_stage2',
+                      'hf_price_max_stage2',
+                      'hf_price_min_stage2',
+                      'hf_price_chg_abs_sta ge2',
+                      'hf_price_pct_chg_stag e2',
+                      'hf_continuous_volum e_ratio',
+                      'hf_tot_volume_bid',
+                      'hf_open_volume_bid',
+                      'hf_close_volume_bid',
+                      'hf_tot_volume_ask',
+                      'hf_open_volume_ask',
+                      'hf_close_volume_ask',
+                      'hf_open_buy_volume_exlarge_order',
+                      'hf_close_buy_volume_exlarge_order',
+                      'hf_open_sell_volume_ exlarge_order',
+                      'hf_close_sell_volume_ exlarge_order',
+                      'hf_open_buy_volume_exlarge_order_act',
+                      'hf_close_buy_volume_exlarge_order_act',
+                      'hf_open_sell_volume_ exlarge_order_act',
+                      'hf_close_sell_volume_ exlarge_order_act',
+                      'hf_open_netinflow_ra te_exlarge_order_act',
+                      'hf_close_netinflow_ra te_exlarge_order_act',
+                      'hf_net_inflow_value_r ate',
+                      'hf_open_net_inflow_v alue_rate',
+                      'hf_close_net_inflow_v alue_rate']
     batch_factor = list()
     for i in range(batch_num):
         # factor_num = 2  # 每组多少个因子
-        factor_num = random.randint(11, 28)
-        batch_factor.append(random.sample(factor_pool, factor_num))
+        factor_num = random.randint(6, 20)
+        fatchors = random.sample(factor_pool, factor_num)
+        hf_factor_num = random.randint(5, 10)
+        hf_fatchors = random.sample(hf_factor_pool, hf_factor_num)
+
+        batch_factor.append(fatchors + hf_fatchors)
 
     parameters_list = []
-    index_list = []
     feature_list = []
     for feature in batch_factor:
         if str(feature) in factor_last:
             print('continue111222')
             continue
         factor_last.append(feature)
-        tmp_index = []
-        for tmp in feature:
-            tmp_index.append(factor_pool.index(tmp))
-        tmp_index.sort()
-        tmp_str = [str(x) for x in tmp_index]
-        index_list.append('_'.join(tmp_str))
         # Result['因子数'] = len(feature)  # 这里计数总共有测试了多少个因子
         # Result['新增因子'] = [feature]  # 这里记录新测试的是哪个因子
         # Result.to_csv('因子表.csv', header=['新增因子', '因子数'], mode='a')  # 把测试好的因子追加写入因子表
@@ -150,7 +223,7 @@ def bigquant_run(bq_graph, inputs):
     print('factor_last', len(factor_last))
     print('feature_list', len(feature_list))
     results = T.parallel_map(run, parameters_list, max_workers=4, remote_run=False, silent=True)  # 任务数 # 是否远程#
-    return results, feature_list, index_list
+    return results, feature_list
 
 
 import numpy as np
